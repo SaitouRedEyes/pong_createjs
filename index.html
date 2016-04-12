@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="lib/createjs-2013.05.14.min.js"></script>
+    <script>
+	
+		var stage;
+		var queue;
+		
+		var background;
+		var collisionPoint;
+		
+		var moveP1Up = false;
+		var moveP1Down = false;
+		var moveP2Up = false;
+		var moveP2Down = false;
+		var p1Speed = 5;
+		var p2Speed = 5;
+		
+		var ballSpeedX = 4;
+		var ballSpeedY = 4;
+				
+		var textScoreP1;
+		var textScoreP2;
+		var scoreP1 = 0;
+		var scoreP2 = 0;
+		
+		var isDead = false;
+		
+        function init() 
+		{			
+			stage = new createjs.Stage("demoCanvas");
+			
+			Preload();
+        }
+		
+		function Preload()
+		{
+			//Usando a classe preloadjs
+			queue = new createjs.LoadQueue(false);
+			queue.installPlugin(createjs.Sound);
+			queue.addEventListener("complete", CreateElements);
+			queue.loadManifest([{id:"background", src:"images/background.jpg"},
+								{id:"player", src:"images/player.jpg"},
+								{id:"player2", src:"images/player2.jpg"},
+								{id:"ball", src:"images/ball.png"},
+								{id:"playerClickedSound", src:"sounds/cartoon004.mp3"}
+								]);
+		}
+		
+		function CreateElements(event)
+		{
+			CreateBackground();
+			CreatePlayer();
+			CreateBall();
+			CreateScore();
+			
+			createjs.Ticker.setFPS(60); //Intervalo = 1000ms / 30fps
+			//createjs.Ticker.setInterval(33.3); //Em milisegundos
+			createjs.Ticker.addEventListener("tick", _tick);
+		}
+		
+		function _tick(event)
+		{	
+			//console.log(Math.floor(createjs.Ticker.getFPS()));
+			
+			UpdatePlayer();
+			UpdateBall();
+			UpdateScoreP1();
+			UpdateScoreP2();
+			
+			stage.update();			
+		}
+
+		function CreateBackground()
+		{
+			background = new createjs.Bitmap(queue.getResult("background"));
+			stage.addChild(background);
+		}
+		
+		document.addEventListener("keydown", _keyDown, true);
+		document.addEventListener("keyup", _keyUp, true);
+		
+		function _keyDown(event)
+		{
+			switch(event.keyCode)
+			{
+				case 38: moveP1Up = true; break;
+				case 40: moveP1Down = true; break;
+				case 87: moveP2Up = true; break;
+				case 83: moveP2Down = true; break;
+			}
+		}
+		
+		function _keyUp(event)
+		{
+			switch(event.keyCode)
+			{
+				case 38: moveP1Up = false; break;
+				case 40: moveP1Down = false; break;
+				case 87: moveP2Up = false; break;
+				case 83: moveP2Down = false; break;
+			}
+		}
+		
+		function CreatePlayer()
+		{
+			player = new createjs.Bitmap(queue.getResult("player"));
+			player.x = 610;
+			player.y = (stage.canvas.height / 2) - (player.image.height / 2);
+			
+			player2 = new createjs.Bitmap(queue.getResult("player2"));
+			player2.x = 10;
+			player2.y = (stage.canvas.height / 2) - (player.image.height / 2);
+			
+			stage.addChild(player);
+			stage.addChild(player2);
+		}
+		
+		function UpdatePlayer()
+		{
+			if(moveP1Up)
+			{
+				player.y -= p1Speed;
+			}
+			else if(moveP1Down)
+			{
+				player.y += p1Speed;
+			}
+			
+			if(moveP2Up)
+			{
+				player2.y -= p2Speed;
+			}
+			else if(moveP2Down)
+			{
+				player2.y += p2Speed;
+			}
+			
+			//Colisão player com a tela.
+			if (player.y < 0)
+			{
+				player.y = 0;
+			}	
+			else if (player.y + player.image.height > stage.canvas.height)
+			{
+				player.y = stage.canvas.height - player.image.height;
+			}
+			
+			if (player2.y < 0)
+			{
+				player2.y = 0;
+			}	
+			else if (player2.y + player2.image.height > stage.canvas.height)
+			{
+				player2.y = stage.canvas.height - player2.image.height;
+			}
+		}
+		
+		function CreateBall()
+		{	
+			ball = new createjs.Bitmap(queue.getResult("ball"));
+			ball.x = (stage.canvas.width / 2) - (ball.image.width / 2);
+			ball.y = stage.canvas.height / 2;
+			
+			stage.addChild(ball);
+		}
+		
+		function UpdateBall()
+		{
+			ball.x += ballSpeedX;
+			ball.y += ballSpeedY;
+			
+			// Colisão da bola com as leterais da tela
+			if (ball.x < 0 && !isDead)
+			{
+				isDead = true;
+				ballSpeedX = ballSpeedY = 0;
+				createjs.Tween.get(ball).to({alpha:0}, 2000).call(Restart);
+				//gol p2
+				scoreP1 += 1;
+			}
+			else if(ball.x + ball.image.width > stage.canvas.width && !isDead)
+			{
+				isDead = true;
+				ballSpeedX = ballSpeedY = 0;
+				createjs.Tween.get(ball).to({alpha:0}, 2000).call(Restart);
+				//gol p1
+				scoreP2 += 1;
+			}
+			
+			//Colisão da bola com as partes superior e inferior da tela
+			if (ball.y < 0 || ball.y + ball.image.height > stage.canvas.height)
+			{
+				ballSpeedY *= -1;
+			}	
+			
+			function Restart() 
+			{
+				ball.alpha = 1;
+				ball.x = (stage.canvas.width / 2) - (ball.image.width / 2);
+				ball.y = stage.canvas.height / 2;
+				ballSpeedX = ballSpeedY = 4;
+				isDead = false;
+			}
+			
+			//colisão da bola com o player.
+			if (ball.x > player.x - player.image.width ||
+				ball.x > player2.x - player2.image.width)
+			{
+				if ((ball.x < player.x + player.image.width &&
+					ball.x + ball.image.width > player.x &&
+					ball.y < player.y + player.image.height &&
+					ball.y + ball.image.height > player.y) ||
+					ball.x < player2.x + player2.image.width &&
+					ball.x + ball.image.width > player2.x &&
+					ball.y < player2.y + player2.image.height &&
+					ball.y + ball.image.height > player2.y)
+				{				
+					/*if ((ball.y + (ball.image.height / 2) < player.y || 
+						 ball.y + (ball.image.height / 2) < player2.y) &&
+						ballSpeedY > 0)
+					{
+						ballSpeedY *= -1;
+					}			
+					else if ((ball.y + (ball.image.height / 2) > player.y + player.image.height || 
+							  ball.y + (ball.image.height / 2) > player2.y + player2.image.height) &&
+							 ballSpeedY < 0)
+					{
+						ballSpeedY *= -1;
+					}*/			
+					
+					ballSpeedX *= -1;
+				}		
+			}
+		}
+		
+		function CreateScore()
+		{
+			textScoreP1 = new createjs.Text("Pontos: " + scoreP1 , "20px Arial", "#ff7700");
+			textScoreP1.x = 540;
+			textScoreP1.y = 10;
+			
+			textScoreP2 = new createjs.Text("Pontos: " + scoreP2 , "20px Arial", "#ff7700");
+			textScoreP2.x = 10;
+			textScoreP2.y = 10;
+			
+			stage.addChild(textScoreP1);
+			stage.addChild(textScoreP2);
+		}
+		
+		function UpdateScoreP1()
+		{
+			textScoreP1.text = "Pontos: " + scoreP1;
+		}
+		
+		function UpdateScoreP2()
+		{
+			textScoreP2.text = "Pontos: " + scoreP2;
+		}
+		
+    </script>
+	
+	
+	
+	
+	
+	
+	
+	
+	<script>
+		//Criando jogador e bola com a classe shape
+		/*player = new createjs.Shape();
+			var playerShape = player.graphics.beginFill("#00ff00");
+			playerShape.rect((stage.canvas.width / 2) - 40, 430, 80, 20);*/
+			
+		/*ball = new createjs.Shape();
+			var ballShape = ball.graphics.beginFill("#00ff00");
+			ballShape.drawCircle(stage.canvas.width / 2, stage.canvas.height / 2, 15);*/
+			
+			
+			
+		//----------------------------------------------------
+			//Colisão do player com a tela (usando hitTest)
+			//----------------------------------------------------
+			/*collisionPoint = player.globalToLocal(0, player.y);
+			
+			if(player.hitTest(collisionPoint.x, collisionPoint.y))
+			{
+				player.x = 0;
+			}
+			
+			collisionPoint = player.globalToLocal(stage.canvas.width, player.y);
+			
+			if(player.hitTest(collisionPoint.x, collisionPoint.y))
+			{
+				player.x = stage.canvas.width - player.image.width;
+			}*/
+			
+			
+			
+			
+			//----------------------------------------------------
+			//Colisão da bola (usando hitTest) nas partes laterais da tela
+			//----------------------------------------------------
+			/*collisionPoint = ball.globalToLocal(ball.image.width / 2, ball.y);
+			
+			if(ball.hitTest(collisionPoint.x, collisionPoint.y))
+			{
+				ballSpeedX *= -1;
+			}
+			
+			collisionPoint = ball.globalToLocal(stage.canvas.width - (ball.image.width / 2), ball.y);
+			
+			if(ball.hitTest(collisionPoint.x, collisionPoint.y))
+			{
+				ballSpeedX *= -1;
+			}*/
+			
+			
+			
+			
+			//----------------------------------------------------
+			//Colisão da bola (usando hitTest) nas partes superior e inferior da tela
+			//----------------------------------------------------
+			/*collisionPoint = ball.globalToLocal(ball.x, ball.image.height / 2);
+			
+			if(ball.hitTest(collisionPoint.x, collisionPoint.y))
+			{
+				ballSpeedY *= -1;
+			}
+			
+			collisionPoint = ball.globalToLocal(ball.x, stage.canvas.height - (ball.image.height / 2));
+			
+			if(ball.hitTest(collisionPoint.x, collisionPoint.y))
+			{
+				ballSpeedY *= -1;
+			}*/
+	</script>
+</head>
+<body onLoad="init();">
+    <canvas id="demoCanvas" width="640" height="480">
+        alternate content
+    </canvas>
+</body>
+</html>
